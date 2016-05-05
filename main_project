@@ -1,6 +1,9 @@
 #include <Keypad.h>
 #include <Key.h>
-
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 //following lines from AdaFruit's example h  
 //this sets up the keypad
@@ -18,16 +21,20 @@ byte colPins[COLS] = {16, 15, 14}; //connect to the column pinouts of the keypad
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 //this ends the sample code
 
-
 String passcode = "1234";
 int SolenoidPin = 9;
 int LedPin = 13;
 int failed_attempts = 0;
 int allowed_fails = 3;
 
-void take_picture(){
-  //TODO, need Alex
-  }
+//The 6.s08 definitions from L02A
+#define DISPLAYUPDATEINTERVAL 100
+#define OLED_RESET 4
+Adafruit_SSD1306 display(OLED_RESET);
+#if (SSD1306_LCDHEIGHT != 64)
+#error("Height incorrect, please fix Adafruit_SSD1306.h!");
+#endif
+//end of 6.s08 code
 
 void passcode_fail(){
   /*
@@ -36,7 +43,6 @@ void passcode_fail(){
   */
   failed_attempts ++;
   if(failed_attempts > allowed_fails){
-    take_picture();
     failed_attempts = 0;
     } 
   }
@@ -54,7 +60,8 @@ String enter_code(){
         return "";}
       else{
         char_string.append(String(key));
-        Serial.println(key);
+        display.print(String(key));
+        display.display();
       }}
     delay(100);
     key = keypad.getKey();
@@ -81,26 +88,47 @@ boolean update_state(){
   /*
   This is a function which handles the updating of the passcode.
   */
-  Serial.println("Please enter your current passcode.");
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.println("Please enter your current passcode.");
+  display.display();
+  delay(500);
   boolean correct_passcode = attempting_state(); //calls the default with the passcode
   if (correct_passcode){
-    Serial.println("Enter your new passcode. End with * key.");
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.println("Enter your updated passcode.");
+    display.display();
     String new_passcode = enter_code();
     if(new_passcode == "" or new_passcode.length() > 16){
-      Serial.println("Passcodes must contain between 1 and 16 characters.");
+      display.clearDisplay();
+      display.setCursor(0,0);
+      display.println("Passcodes must contain between 1 and 16 characters.");
+      display.display();
+      delay(2000);
+      //Serial.println("Passcodes must contain between 1 and 16 characters.");
       return false;}
-    Serial.println("Please enter the password again. End with * key.");
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.println("Re-enter your new password");
+    display.display();
+    delay(1000);
+    //Serial.println("Please enter the password again. End with * key.");
     boolean can_update = attempting_state(new_passcode);
     if(can_update){
       passcode = new_passcode;
+      failed_attempts = 0;
       return true;
       }
     else{
-      Serial.println("Codes do not match");
+      display.clearDisplay();
+      display.setCursor(0,0);
+      display.println("Codes to not match. Update failed.");
+      display.display();
+      delay(2000);
       return false;}
     }
   else{
-    Serial.println("Passcode failed");
     return false;
     }
   
@@ -110,23 +138,49 @@ boolean update_state(){
 void setup() {
   pinMode(SolenoidPin, OUTPUT);
   pinMode(LedPin, OUTPUT);
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3c);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.println("Starting doorlock");
+  display.display();
+  delay(2000);
 }
 
 void loop() {
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.println("Begin entering passcode by using *. Use # to update passcode.");
+  display.display();
+  delay(500);
   char key = keypad.getKey();
   if(key == '#')
     {
     boolean updated = update_state(); 
     if(updated){
-      Serial.println("Passcode updated");
+      display.clearDisplay();
+      display.setCursor(0,0);
+      display.println("Passcode updated and is now ");
+      display.print(passcode);
+      display.display();
+      delay(4000);
       }
     else{
-      Serial.println("Passcode update failed");
+      display.clearDisplay();
+      display.setCursor(0,0);
+      display.println("Passcode update failed.");
+      display.display();
+      delay(2000);
       }
     }
   else if (key == '*')
     {
-    Serial.println("Attempting unlock");
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.println("Attempting passcode (end with *):");
+    display.display();
+    delay(1000);
     boolean unlocked = attempting_state();
     if (unlocked)
       {
