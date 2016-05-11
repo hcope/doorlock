@@ -44,13 +44,14 @@ void passcode_fail(){
   failed_attempts ++;
   if(failed_attempts > allowed_fails){
     failed_attempts = 0;
+    camera_setup();
     } 
   }
 
 String enter_code(){
   /* 
-  This is a helper function which loops in order to add digits to a string
-  Exits on 
+  This is a helper function whi ch loops in order to add digits to a string
+  Exits upon pressing the asterisk key.
   */
   char key = keypad.getKey();
   String char_string = "";
@@ -79,7 +80,7 @@ boolean attempting_state(String code = passcode){
   if(attempt != code and attempt != ""){
     passcode_fail();
     //wrapper because anytime we attempt the password, either to change it or open the lock, we want the same failure mode, not true for passing
-    //note that if we exit with an empty string we don't want that to count as an attempt.
+    //note that if we exit with an empty string we don't want that string to count as an attempt.
     }
   return (attempt == code);
   }
@@ -117,25 +118,25 @@ boolean update_state(){
     boolean can_update = attempting_state(new_passcode);
     if(can_update){
       passcode = new_passcode;
+      String PostData = "combination=" + passcode
+      requester(PostData); // POST the new combination to our SQL combo database
       failed_attempts = 0;
       return true;
       }
     else{
       display.clearDisplay();
       display.setCursor(0,0);
-      display.println("Codes to not match. Update failed.");
+      display.println("Codes do not match. Update failed.");
       display.display();
       delay(2000);
       return false;}
     }
   else{
     return false;
-    }
-  
-  
+    }  
   }
 
-void setup() {
+void setup() { //initializes display
   pinMode(SolenoidPin, OUTPUT);
   pinMode(LedPin, OUTPUT);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3c);
@@ -146,6 +147,15 @@ void setup() {
   display.println("Starting doorlock");
   display.display();
   delay(2000);
+}
+
+void save_energy(){
+  /*
+   This function turns off various lights and components when called in order to save battery.
+   */
+  digitalWrite(LedPin, LOW);
+  display.ssd1306_command(SSD1306_DISPLAYOFF);
+  delay(500);
 }
 
 void loop() {
@@ -185,6 +195,8 @@ void loop() {
     if (unlocked)
       {
       failed_attempts = 0;
+      display.println("\nCongrats, you're in the mainframe.");
+      display.display();
       for (int i = 0; i < 30; i++)
       {
          // Flash the led to indicate the lock is open
