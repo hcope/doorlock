@@ -5,7 +5,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-//following lines from AdaFruit's example h  
+//following lines from AdaFruit's example.h  
 //this sets up the keypad
 const byte ROWS = 4; //four rows
 const byte COLS = 3; //three columns
@@ -45,7 +45,7 @@ void passcode_fail(){
   if(failed_attempts > allowed_fails){
     failed_attempts = 0;
     camera_setup();
-    } 
+    }
   }
 
 String enter_code(){
@@ -117,6 +117,7 @@ boolean update_state(){
     //Serial.println("Please enter the password again. End with * key.");
     boolean can_update = attempting_state(new_passcode);
     if(can_update){
+      initializeWifi(); //start connection
       passcode = new_passcode;
       String PostData = "combination=" + passcode
       requester(PostData); // POST the new combination to our SQL combo database
@@ -149,13 +150,16 @@ void setup() { //initializes display
   delay(2000);
 }
 
-void save_energy(){
+void save_energy(bool wifiOff = True){
   /*
    This function turns off various lights and components when called in order to save battery.
    */
   digitalWrite(LedPin, LOW);
   display.ssd1306_command(SSD1306_DISPLAYOFF);
   delay(500);
+  if(wifiOff){
+    digitalWrite(wifiControlPin,LOW);
+  }
 }
 
 void loop() {
@@ -174,7 +178,7 @@ void loop() {
       display.println("Passcode updated and is now ");
       display.print(passcode);
       display.display();
-      delay(4000);
+      delay(2000);
       }
     else{
       display.clearDisplay();
