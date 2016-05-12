@@ -1,9 +1,15 @@
+#include <ESP8266.h>
 #include <Keypad.h>
 #include <Key.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+
+#define wifiSerial Serial1
+#define serialYes true
+
+ESP8266 wifi = ESP8266(true);
 
 //following lines from AdaFruit's example.h  
 //this sets up the keypad
@@ -21,11 +27,11 @@ byte colPins[COLS] = {16, 15, 14}; //connect to the column pinouts of the keypad
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 //this ends the sample code
 
-String passcode = "1234";
+String passcode;
 int SolenoidPin = 9;
 int LedPin = 13;
 int failed_attempts = 0;
-int allowed_fails = 3;
+int allowed_fails = 1;
 
 //The 6.s08 definitions from L02A
 #define DISPLAYUPDATEINTERVAL 100
@@ -114,13 +120,10 @@ boolean update_state(){
     display.println("Re-enter your new password");
     display.display();
     delay(1000);
-    //Serial.println("Please enter the password again. End with * key.");
     boolean can_update = attempting_state(new_passcode);
     if(can_update){
-      initializeWifi(); //start connection
-      passcode = new_passcode;
-      String PostData = "combination=" + passcode
-      requester(PostData); // POST the new combination to our SQL combo database
+      setup_wifi();
+      send_combo(new_passcode);
       failed_attempts = 0;
       return true;
       }
@@ -140,6 +143,7 @@ boolean update_state(){
 void setup() { //initializes display
   pinMode(SolenoidPin, OUTPUT);
   pinMode(LedPin, OUTPUT);
+  setup_wifi();
   display.begin(SSD1306_SWITCHCAPVCC, 0x3c);
   display.clearDisplay();
   display.setTextSize(1);
@@ -147,10 +151,11 @@ void setup() { //initializes display
   display.setCursor(0,0);
   display.println("Starting doorlock");
   display.display();
+  passcode = load_combo();
   delay(2000);
 }
 
-void save_energy(bool wifiOff = True){
+void save_energy(bool wifiOff){
   /*
    This function turns off various lights and components when called in order to save battery.
    */
@@ -158,7 +163,7 @@ void save_energy(bool wifiOff = True){
   display.ssd1306_command(SSD1306_DISPLAYOFF);
   delay(500);
   if(wifiOff){
-    digitalWrite(wifiControlPin,LOW);
+    digitalWrite(2,LOW);
   }
 }
 
@@ -179,6 +184,7 @@ void loop() {
       display.print(passcode);
       display.display();
       delay(2000);
+      digitalWrite(2, LOW);
       }
     else{
       display.clearDisplay();
@@ -199,7 +205,7 @@ void loop() {
     if (unlocked)
       {
       failed_attempts = 0;
-      display.println("\nCongrats, you're in the mainframe.");
+      display.println("\n Congrats, you're in the mainframe.");
       display.display();
       for (int i = 0; i < 30; i++)
       {
