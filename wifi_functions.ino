@@ -7,7 +7,7 @@
 // itead/ITEADLIB_Arduino_ESP8266
 
 //Most functions in here are from L02A for 6.S08.
-//Some have been removed (including loop/setup) or edited by hcope and canepa
+//Some have been removed (including loop/setup) or edited
 
 #include <ESP8266.h>
 
@@ -190,6 +190,20 @@ bool sendComm(String buffer, int len) {
     return false;
 }
 
+// Read data from wifi and place into string
+String receiveData(uint32_t timeout) {
+  String response;
+  unsigned long start = millis();
+  while (millis() - start <timeout){
+    if (wifiSerial.available()>0){
+      char c = wifiSerial.read();
+      Serial.print(c);
+      response=String(response+c);
+    }
+  }
+  return response;
+}
+
 String httpComm(String domain, int port, String path, String comm) {  
   String response;  
   emptyRx();          // empty buffer
@@ -214,7 +228,21 @@ String httpComm(String domain, int port, String path, String comm) {
   return response;
 }
 
-\\\\\\\
+String getMAC(uint32_t timeout) {
+  String response;
+  wifiSerial.println("AT+CIPSTAMAC?");    //send MAC query
+  unsigned long start = millis();
+  
+  while (millis() - start <timeout){
+    if (wifiSerial.available()>0){
+      char c = wifiSerial.read();
+      Serial.print(c);
+      response=String(response+c);
+    }
+  }
+  int stringStart = response.indexOf(":") + 2;
+  return response.substring(stringStart,stringStart+17);
+}
 
 void initializeWifi() {
   if (serialYes) Serial.begin(9600); //number meaningless on teensy (1MBit/s)
@@ -231,11 +259,25 @@ void initializeWifi() {
   }
 }
 
+void listWifis(){
+  wifis="";
+  if (serialYes) Serial.println("Checking for Wifis!!!");
+  emptyRx();
+  wifiSerial.println("AT+CWLAP");
+  unsigned long start = millis();
+  while (millis() - start <5000){
+    if (wifiSerial.available()){
+      char c = wifiSerial.read();
+      wifis = String(wifis+c);
+    }
+  }
+}
+
 void requester(String PostData){ //sends POST Request to dev1 py file
 {
   if (wifi_good != true){   //if we're not connected to a network
     if (check()){       //if ESP8266 present
-      listWifis();        
+      listWifis();
       if (serialYes) Serial.println(wifis);
 
       bool good = connectWifi(SSID,password); //connect to network
@@ -250,7 +292,7 @@ void requester(String PostData){ //sends POST Request to dev1 py file
     
   String returnData = "";
   String steps = "";
-  if (wifi_good){   //if we're connected to a network
+  if (wifi_good){ //if we're connected to a network
   
     // web server parameters
     String domain = "iesc-s2.mit.edu";
@@ -261,10 +303,10 @@ void requester(String PostData){ //sends POST Request to dev1 py file
     String send_comm = 
     "POST "+ path + " HTTP/1.1\r\n" +
     "Host: " + domain + "\r\n\r\n" +
-    "Content-Type: application/x-www-form-urlencoded; charset=UTF-8") + "Content-Length:" + 
+    "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" + "Content-Length:" + 
     (passcode.length()+12) + "\n" + PostData; 
     get_response = httpComm(domain, port, path, send_comm);
     if (serialYes) Serial.println(get_response);
     delay(200);      // delay 0.2 secs
-    }  
-}
+    }
+}}
